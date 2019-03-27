@@ -3,9 +3,7 @@
 //
 
 #include "TetrisGame.h"
-
-static const int BLOCK_WIDTH = 32;			// pixel width of a tetris block
-static const int BLOCK_HEIGHT = 32;			// pixel height of a tetris block
+using namespace std;
 
 // MEMBER FUNCTIONS
 
@@ -19,31 +17,71 @@ TetrisGame::TetrisGame(sf::RenderWindow *window, sf::Sprite *blockSprite, Point 
 	pBlockSprite = blockSprite;
 	this->gameboardOffset = gameboardOffset;
 	this->nextShapeOffset = nextShapeOffset;
-	currentShape.setShape(Tetromino::getRandomShape());
+	reset();
+
+	scoreFont.loadFromFile("fonts/RedOctober.ttf");
+	scoreText.setFont(scoreFont);
+	scoreText.setCharacterSize(24);
+	scoreText.setFillColor(sf::Color::White);
+	scoreText.setPosition(435, 325);
 }
 
 
 // destructor, set pointers to null
 TetrisGame::~TetrisGame() {
-
+	pWindow = nullptr;
+	pBlockSprite = nullptr;
 }
 
 // draw anything to do with the game,
 // includes board, currentShape, nextShape, score
 void TetrisGame::draw() {
-//	drawGameboard();
+	drawGameboard();
 	drawTetromino(currentShape, gameboardOffset);
+	drawTetromino(nextShape, nextShapeOffset);
+	pWindow->draw(scoreText);
 }
 
 // Event and game loop processing
 // handles keypress events (up, left, right, down, space)
 void TetrisGame::onKeyPressed(sf::Event event) {
-
-}
+	switch (event.key.code) {
+		case sf::Keyboard::Up : attemptRotate(currentShape);
+		break;
+		case sf::Keyboard::Left : attemptMove(currentShape, -1, 0);
+		break;
+		case sf::Keyboard::Right : attemptMove(currentShape, 1, 0);
+		break;
+		case sf::Keyboard::Space : drop(currentShape), lock(currentShape);
+		break;
+		case sf::Keyboard::Down :
+			if(!attemptMove(currentShape, 0, 1)) {
+				lock(currentShape);
+			} else {
+				attemptMove(currentShape, 0, 1);
+			};
+		};
+	}
 
 // called every game loop to handle ticks & tetromino placement (locking)
 void TetrisGame::processGameLoop(float secondsSinceLastLoop) {
+	secondsSinceLastTick += secondsSinceLastLoop;
+	if (secondsSinceLastTick > secsPerTick) {
+		tick();
+		secondsSinceLastTick -= secsPerTick;
+	}
+	if (shapePlacedSinceLastGameLoop) {
+		if (!spawnNextShape()) {
+			reset();
+		} else {
+			pickNextShape();
+			score += board.removeCompletedRows();
+			setScore(score);
+			determineSecsPerTick();
+			shapePlacedSinceLastGameLoop =  false;
 
+		}
+	}
 }
 
 // A tick() forces the currentShape to move (if there were no tick,
@@ -52,7 +90,11 @@ void TetrisGame::processGameLoop(float secondsSinceLastLoop) {
 // the currentShape (it can move no further), and record the fact that a
 // shape was placed (using shapePlacedSinceLastGameLoop)
 void TetrisGame::tick() {
-
+	if (attemptMove(currentShape, 0, 1)) {
+	} else {
+		lock(currentShape);
+		shapePlacedSinceLastGameLoop = true;
+	}
 }
 
 // reset everything for a new game (use existing functions)
@@ -62,11 +104,19 @@ void TetrisGame::tick() {
 //  - pick & spawn next shape
 //  - pick next shape again
 void TetrisGame::reset() {
+	setScore(0);
+	determineSecsPerTick();
+	board.empty();
+	pickNextShape();
+	spawnNextShape();
+	pickNextShape();
+	shapePlacedSinceLastGameLoop =  false;
 
 }
 
 // assign nextShape.setShape a new random shape
 void TetrisGame::pickNextShape() {
+	nextShape.setShape(Tetromino::getRandomShape());
 
 }
 
@@ -75,7 +125,9 @@ void TetrisGame::pickNextShape() {
 //   its loc to be the gameboard's spawn loc.
 //	 - return true/false based on isPositionLegal()
 bool TetrisGame::spawnNextShape() {
-	return true;
+	currentShape = nextShape;
+	currentShape.setGridLoc(board.getSpawnLoc());
+	return isPositionLegal(currentShape);
 }
 
 
@@ -89,7 +141,14 @@ bool TetrisGame::spawnNextShape() {
 //      if so - rotate the original tetromino.
 //	 4) return true/false to indicate successful movement
 bool TetrisGame::attemptRotate(GridTetromino &shape) {
-	return true;
+	GridTetromino tempTet = shape;
+	tempTet.rotateCW();
+	if (isPositionLegal(tempTet)) {
+		shape.rotateCW();
+		return true;
+	} else {
+		return false;
+	}
 }
 
 
@@ -101,14 +160,21 @@ bool TetrisGame::attemptRotate(GridTetromino &shape) {
 //      if so - move the original.
 //	 4) return true/false to indicate successful movement
 bool TetrisGame::attemptMove(GridTetromino &shape, int x, int y) {
-	return true;
+	GridTetromino tempTet = shape;
+	tempTet.move(x, y);
+	if (isPositionLegal(tempTet)) {
+		shape.move(x, y);
+		return true;
+	} else {
+		return false;
+	}
 }
 
 
 // drops the tetromino vertically as far as it can
 //   legally go.  Use attemptMove(). This can be done in 1 line.
 void TetrisGame::drop(GridTetromino &shape) {
-
+	while (attemptMove(shape, 0, 1));
 }
 
 // copy the contents of the tetromino's mapped block locs to the grid.
@@ -116,7 +182,9 @@ void TetrisGame::drop(GridTetromino &shape) {
 //	 2) iterate on the mapped block locs and copy the contents (color)
 //      of each to the grid (via gameboard.setGridContent())
 void TetrisGame::lock(const GridTetromino &shape) {
-
+	for (auto contents : shape.getBlockLocsMappedToGrid()) {
+		board.setContent(contents, shape.getColor());
+	}
 }
 
 // Graphics methods ==============================================
@@ -142,7 +210,9 @@ void TetrisGame::drawBlock(int x, int y, TetColor color, Point origin) {
 void TetrisGame::drawGameboard() {
 	for(int x = 0; x < board.MAX_X; x++) {
 		for(int y = 0; y < board.MAX_Y; y++) {
-				drawBlock(x, y, PURPLE, gameboardOffset);
+			if (board.getContent(x, y) != -1) {
+				drawBlock(x, y, static_cast<TetColor>(board.getContent(x, y)) , gameboardOffset);
+			}
 		}
 	}
 }
@@ -153,14 +223,20 @@ void TetrisGame::drawGameboard() {
 //   If the Tetromino is on the gameboard: use gameboardOffset (otherwise you
 //   can specify another point as the origin - for the nextShape)
 void TetrisGame::drawTetromino(GridTetromino tetromino, Point origin) {
-
+	for (auto loc : tetromino.getBlockLocsMappedToGrid()) {
+		drawBlock(loc.getX(), loc.getY(), tetromino.getColor(), origin);
+	}
 }
 
 // set the score, update the score display
 // form a string "score: ##" to include the current score
 // user scoreText.setString() to display it.
 void TetrisGame::setScore(int score) {
-
+	if (score == 0) {
+		score = 0;
+	}
+	score += score;
+	scoreText.setString("score: " + to_string(score));
 }
 
 // State & gameplay/logic methods ================================
@@ -168,12 +244,22 @@ void TetrisGame::setScore(int score) {
 // return true if shape is within borders (isShapeWithinBorders())
 //	 and doesn't intersect locked blocks (doesShapeIntersectLockedBlocks)
 bool TetrisGame::isPositionLegal(const GridTetromino &shape) {
-	return true;
+	if (isShapeWithinBorders(shape) && doesShapeIntersectLockedBlocks(shape)) {
+		return true;
+	} else {
+		return false;
+	}
 }
 
 // return true if the shape is within the left, right,
 //	 and lower border of the grid. (false otherwise)
 bool TetrisGame::isShapeWithinBorders(const GridTetromino &shape) {
+	for (auto loc : shape.getBlockLocsMappedToGrid()) {
+		if (loc.getX() < board.MAX_X && loc.getX() >= 0 && loc.getY() < board.MAX_Y && loc.getY() >= -4) {
+		} else {
+			return false;
+		}
+	}
 	return true;
 }
 
@@ -181,12 +267,17 @@ bool TetrisGame::isShapeWithinBorders(const GridTetromino &shape) {
 //   contains anything other than Gameboard::EMPTY_BLOCK. (false otherwise)
 //   hint Use Gameboard's areLocsEmpty() for this.
 bool TetrisGame::doesShapeIntersectLockedBlocks(const GridTetromino &shape) {
-	return true;
+		if (board.areLocsEmpty(shape.getBlockLocsMappedToGrid())) {
+			return true;
+	} else {
+			return false;
+		}
 }
 
 // set secsPerTick
 //   - basic: use MAX_SECS_PER_TICK
 //   - advanced: base it on score (higher score results in lower secsPerTick)
 void TetrisGame::determineSecsPerTick() {
+	secsPerTick = MAX_SECS_PER_TICK;
 
 }
