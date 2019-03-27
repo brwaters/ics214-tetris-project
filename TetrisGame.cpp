@@ -104,7 +104,8 @@ void TetrisGame::tick() {
 //  - pick & spawn next shape
 //  - pick next shape again
 void TetrisGame::reset() {
-	setScore(0);
+	score  =  0;
+	setScore(score);
 	determineSecsPerTick();
 	board.empty();
 	pickNextShape();
@@ -232,10 +233,6 @@ void TetrisGame::drawTetromino(GridTetromino tetromino, Point origin) {
 // form a string "score: ##" to include the current score
 // user scoreText.setString() to display it.
 void TetrisGame::setScore(int score) {
-	if (score == 0) {
-		score = 0;
-	}
-	score += score;
 	scoreText.setString("score: " + to_string(score));
 }
 
