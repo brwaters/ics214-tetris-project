@@ -52,7 +52,7 @@ void TetrisGame::onKeyPressed(sf::Event event) {
 		break;
 		case sf::Keyboard::Right : attemptMove(currentShape, 1, 0);
 		break;
-		case sf::Keyboard::Space : drop(currentShape), lock(currentShape);
+		case sf::Keyboard::Space : drop(currentShape); lock(currentShape); shapePlacedSinceLastGameLoop = true;
 		break;
 		case sf::Keyboard::Down :
 			if(!attemptMove(currentShape, 0, 1)) {
@@ -211,7 +211,7 @@ void TetrisGame::drawBlock(int x, int y, TetColor color, Point origin) {
 void TetrisGame::drawGameboard() {
 	for(int x = 0; x < board.MAX_X; x++) {
 		for(int y = 0; y < board.MAX_Y; y++) {
-			if (board.getContent(x, y) != -1) {
+			if (board.getContent(x, y) != Gameboard::EMPTY_BLOCK) {
 				drawBlock(x, y, static_cast<TetColor>(board.getContent(x, y)) , gameboardOffset);
 			}
 		}
