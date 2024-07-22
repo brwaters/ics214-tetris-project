@@ -1,13 +1,24 @@
-cmake_minimum_required(VERSION 3.13)
-project(FinalProject)
+cmake_minimum_required(VERSION 3.10)
+project(Tetris)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
+# Add source files
+set(SOURCE_FILES
+    Gameboard.cpp
+    GridTetromino.cpp
+    Point.cpp
+    TetrisGame.cpp
+    Tetromino.cpp
+    main.cpp
+)
+
+# Add executable
+add_executable(Tetris ${SOURCE_FILES})
+
+# Find SFML
 find_package(SFML 2.5 COMPONENTS system window graphics network audio REQUIRED)
+include_directories(${SFML_INCLUDE_DIRS})
 
-add_executable(FinalProject main.cpp Point.cpp Point.h Tetromino.cpp Tetromino.h GameBoard.cpp GameBoard.h GridTetromino.cpp GridTetromino.h TetrisGame.cpp TetrisGame.h)
-
-if(SFML_FOUND)
-    include_directories(${SFML_INLCUDE_DIR})
-    target_link_libraries(${PROJECT_NAME} sfml-system sfml-window sfml-graphics sfml-network sfml-audio)
-endif()
+# Link SFML libraries explicitly
+target_link_libraries(Tetris sfml-system sfml-window sfml-graphics sfml-network sfml-audio)
